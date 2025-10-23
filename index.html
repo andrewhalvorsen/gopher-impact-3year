@@ -168,16 +168,14 @@
 <script>
 /* ------------------------------ Helpers ------------------------------ */
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
-const floorFactor=(f)=>clamp(f,0.10,5.0); // floor to avoid negative/near-zero factors
+const floorFactor=(f)=>clamp(f,0.10,5.0);          // global floor (avoid negatives / zeros)
+const capOwl=(f)=>clamp(f,0.80,1.00);              // <=20% reduction per year from owls
 
 /* ------------------------------ Model ------------------------------ */
 const SPECIES = {
   gopher: { name:"Gophers", owlEffectFactor:1.0,
-    K_per_acre:200,          /* ↑ capacity to allow 3-year climb */
-    litterMean:6, birthFracFemale:.70, breederFrac:.80,
-    fertSlope:1.5,           /* gentler taper */
-    survJ:.45, survS:.65, survA:.90, /* ↑ adult survival */
-    agingA:.02,              /* ↓ aging */
+    K_per_acre:200, litterMean:6, birthFracFemale:.70, breederFrac:.80,
+    fertSlope:1.5, survJ:.45, survS:.65, survA:.90, agingA:.02,
     basePer10:{1:20,2:40,3:70},
     pricePerLb:2.50, yieldLbPerAcre:2500,
     lossRate:{1:.02,2:.04,3:.06}, lossAfterTreat:.01,
@@ -205,12 +203,12 @@ const SPECIES = {
 const PASSES_PER_YEAR=6, KILL_RATE_PER_PASS=.25;
 const SURVIVE_ANNUAL=Math.pow(1-KILL_RATE_PER_PASS,PASSES_PER_YEAR);
 
-// Owls (same as before)
+// Owls — gentle
 const OWLS_PER_100_ACRES=1.9;
-const PREDATION_PER_OWL_PER_WEEK=3.5;
-const OWL_STRENGTH=1.8;
+const PREDATION_PER_OWL_PER_WEEK=2.0;   // ↓ was 3.5
+const OWL_STRENGTH=0.6;                  // ↓ was 1.8
 
-// Owl pop-drop → damage discount
+// Owl pop-drop → damage discount (still computed, then capped)
 const GAMMA=4.5, BETA_YIELD=.35, BETA_NON=.70;
 
 // Population-linked elasticity (tempered)
@@ -325,7 +323,7 @@ function simulate3Years({ acres, level, owlsOn, activeIds }){
     }
   });
 
-  // Build damages per year with population-linked factors + owl discounts
+  // Build damages per year with population-linked factors + capped owl discounts
   for(let y=0;y<years;y++){
     const eps=1e-9;
 
@@ -344,17 +342,17 @@ function simulate3Years({ acres, level, owlsOn, activeIds }){
     const popFacT_on  = { yieldFactor: floorFactor(1 + PHI_YIELD*(idxT_on - 1)),
                           nonYieldFactor: floorFactor(1 + PHI_NON*(idxT_on - 1)) };
 
-    // Owl discount based on drop between OFF vs ON for the same year
+    // Owl discount based on drop between OFF vs ON for the same year (then cap to >= 0.80)
     const rN = Math.max(0,(agg.natPA_off[y]-agg.natPA_on[y]) / Math.max(eps, agg.natPA_off[y]));
     const rT = Math.max(0,(agg.trtPA_off[y]-agg.trtPA_on[y]) / Math.max(eps, agg.trtPA_off[y]));
-    const rHatN = Math.min(1, GAMMA*rN);
-    const rHatT = Math.min(1, GAMMA*rT);
-    const owlFacN = { yieldFactor: floorFactor(1 - BETA_YIELD*rHatN),
-                      nonYieldFactor: floorFactor(1 - BETA_NON*rHatN) };
-    const owlFacT = { yieldFactor: floorFactor(1 - BETA_YIELD*rHatT),
-                      nonYieldFactor: floorFactor(1 - BETA_NON*rHatT) };
+    const rHatN = Math.min(1, 4.5*rN);
+    const rHatT = Math.min(1, 4.5*rT);
+    const owlFacN = { yieldFactor: capOwl(1 - BETA_YIELD*rHatN),
+                      nonYieldFactor: capOwl(1 - BETA_NON*rHatN) };
+    const owlFacT = { yieldFactor: capOwl(1 - BETA_YIELD*rHatT),
+                      nonYieldFactor: capOwl(1 - BETA_NON*rHatT) };
 
-    // Combine (population elasticity × owl discount)
+    // Combine (population elasticity × capped owl discount)
     const fN_off = popFacN_off, fT_off = popFacT_off;
     const fN_on  = { yieldFactor: floorFactor(popFacN_on.yieldFactor * owlFacN.yieldFactor),
                      nonYieldFactor: floorFactor(popFacN_on.nonYieldFactor * owlFacN.nonYieldFactor) };
