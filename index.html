@@ -166,7 +166,7 @@
   </div>
 
 <script>
-/* ------------------------------ Model (same logic, multi-year) ------------------------------ */
+/* ------------------------------ Model ------------------------------ */
 const SPECIES = {
   gopher: { name:"Gophers", owlEffectFactor:1.0,
     K_per_acre:80, litterMean:6, birthFracFemale:.70, breederFrac:.80, fertSlope:3.5,
@@ -194,7 +194,7 @@ const SPECIES = {
     sevMult:{1:.8,2:1.0,3:1.2}, maintMultiplierAfterTreat:.20 },
 };
 
-// Treatment parameters (CO₂: 25%/pass, 6 passes/year)
+// Treatment (CO₂: 25% per pass, 6 passes/year)
 const PASSES_PER_YEAR=6, KILL_RATE_PER_PASS=.25;
 const SURVIVE_ANNUAL=Math.pow(1-KILL_RATE_PER_PASS,PASSES_PER_YEAR); // (0.75)^6
 
@@ -203,8 +203,12 @@ const OWLS_PER_100_ACRES=1.9;
 const PREDATION_PER_OWL_PER_WEEK=3.5;
 const OWL_STRENGTH=1.8;
 
-// Map pop drop → damage discount (boosted)
+// Owl pop-drop → damage discount (boosted)
 const GAMMA=4.5, BETA_YIELD=.35, BETA_NON=.70;
+
+// NEW: Population-linked damage elasticity across years
+// (>1 increases Natural damages; <1 decreases Treated damages)
+const PHI_YIELD=0.9, PHI_NON=1.1;
 
 function cloneP(P){return [[P[0][0],P[0][1]],[P[1][0],P[1][1]],[P[2][0],P[2][1]]];}
 const sumAll=P=>P[0][0]+P[0][1]+P[1][0]+P[1][1]+P[2][0]+P[2][1];
@@ -225,7 +229,6 @@ function annualStep(spec, P, acres, owlsOn){
   let nextAf=Sf*spec.survS+Af*spec.survA, nextAm=Sm*spec.survS+Am*spec.survA;
   nextAf=Math.max(0,nextAf-Af*spec.agingA); nextAm=Math.max(0,nextAm-Am*spec.agingA);
 
-  // Owls after reproduction/survival
   if(owlsOn){
     const owlsEff=OWLS_PER_100_ACRES*(acres/100);
     const afterTot=nextJf+nextJm+nextSf+nextSm+nextAf+nextAm;
@@ -239,17 +242,17 @@ function annualStep(spec, P, acres, owlsOn){
   return [[nextJf,nextJm],[nextSf,nextSm],[nextAf,nextAm]];
 }
 
-/* Damages: Treated scales with severity (yield 1% × sev, non-yield sev × 20%) */
+/* Treated scales with severity (yield 1% × sev, non-yield sev × 20%), and factors can adjust via population & owls */
 function damages(spec, acres, level, isTreated, factors){
-  const fYield = factors ? factors.yieldFactor : 1.0;
-  const fNon   = factors ? factors.nonYieldFactor : 1.0;
+  const fYield = factors?.yieldFactor ?? 1.0;
+  const fNon   = factors?.nonYieldFactor ?? 1.0;
   const sev    = spec.sevMult[level];
 
   const baseRev = acres * spec.yieldLbPerAcre * spec.pricePerLb;
   const baseRate = isTreated ? (spec.lossAfterTreat * sev) : spec.lossRate[level];
   const lossOfCrop  = baseRev * (baseRate * fYield);
 
-  let mult = sev;
+  let mult = sev; // always apply severity
   let drip  = spec.dripPerAcre    * mult * acres;
   let cropD = spec.cropDmgPerAcre * mult * acres;
   let other = spec.otherPerAcre   * mult * acres;
@@ -263,77 +266,6 @@ function damages(spec, acres, level, isTreated, factors){
   return { lossOfCrop, drip, cropD, other, total: lossOfCrop + drip + cropD + other };
 }
 
-/* Simulate 3 years and aggregate across active species */
-function simulate3Years({ acres, level, owlsOn, activeIds }){
-  const years = 3;
-  const agg = {
-    natPA_off:Array(years).fill(0), trtPA_off:Array(years).fill(0),
-    natPA_on:Array(years).fill(0),  trtPA_on:Array(years).fill(0),
-    dN_base:Array(years), dT_base:Array(years),
-    dN_owl:Array(years),  dT_owl:Array(years),
-  };
-
-  activeIds.forEach(id=>{
-    const spec = SPECIES[id];
-
-    // Tracks with owls OFF
-    let Pn_off = initialize(spec, acres, level);
-    let Pt_off = cloneP(Pn_off);
-
-    // Tracks with owls ON
-    let Pn_on = cloneP(Pn_off);
-    let Pt_on = cloneP(Pn_off);
-
-    for(let y=0;y<years;y++){
-      // OFF
-      Pn_off = annualStep(spec, Pn_off, acres, false);
-      Pt_off = annualStep(spec, Pt_off, acres, false);
-      for(let a=0;a<3;a++) for(let s=0;s<2;s++) Pt_off[a][s] *= SURVIVE_ANNUAL;
-
-      const natPA_off = sumAll(Pn_off)/acres;
-      const trtPA_off = sumAll(Pt_off)/acres;
-      agg.natPA_off[y]+=natPA_off; agg.trtPA_off[y]+=trtPA_off;
-
-      // Base damages (no owl discount)
-      const dNb = damages(spec, acres, level, false, null);
-      const dTb = damages(spec, acres, level, true , null);
-      agg.dN_base[y] = agg.dN_base[y]
-        ? addDamages(agg.dN_base[y], dNb) : dNb;
-      agg.dT_base[y] = agg.dT_base[y]
-        ? addDamages(agg.dT_base[y], dTb) : dTb;
-
-      // ON
-      Pn_on = annualStep(spec, Pn_on, acres, true);
-      Pt_on = annualStep(spec, Pt_on, acres, true);
-      for(let a=0;a<3;a++) for(let s=0;s<2;s++) Pt_on[a][s] *= SURVIVE_ANNUAL;
-
-      const natPA_on = sumAll(Pn_on)/acres;
-      const trtPA_on = sumAll(Pt_on)/acres;
-      agg.natPA_on[y]+=natPA_on; agg.trtPA_on[y]+=trtPA_on;
-
-      // Owl discounts based on per-year drop
-      const eps=1e-9;
-      const rN = Math.max(0,(natPA_off-natPA_on)/Math.max(eps,natPA_off));
-      const rT = Math.max(0,(trtPA_off-trtPA_on)/Math.max(eps,trtPA_off));
-      const rHatN = Math.min(1, GAMMA*rN);
-      const rHatT = Math.min(1, GAMMA*rT);
-      const factorsN = { yieldFactor:1 - BETA_YIELD*rHatN, nonYieldFactor:1 - BETA_NON*rHatN };
-      const factorsT = { yieldFactor:1 - BETA_YIELD*rHatT, nonYieldFactor:1 - BETA_NON*rHatT };
-
-      const dNo = damages(spec, acres, level, false, factorsN);
-      const dTo = damages(spec, acres, level, true , factorsT);
-      agg.dN_owl[y] = agg.dN_owl[y]
-        ? addDamages(agg.dN_owl[y], dNo) : dNo;
-      agg.dT_owl[y] = agg.dT_owl[y]
-        ? addDamages(agg.dT_owl[y], dTo) : dTo;
-    }
-  });
-
-  return (owlsOn)
-    ? { dN: agg.dN_owl, dT: agg.dT_owl }
-    : { dN: agg.dN_base, dT: agg.dT_base };
-}
-
 function addDamages(a,b){
   return {
     lossOfCrop:a.lossOfCrop+b.lossOfCrop,
@@ -342,6 +274,111 @@ function addDamages(a,b){
     other:a.other+b.other,
     total:a.total+b.total
   };
+}
+
+/* Simulate 3 years; damages now respond to population each year */
+function simulate3Years({ acres, level, owlsOn, activeIds }){
+  const years = 3;
+  const agg = {
+    natPA_off:Array(years).fill(0), trtPA_off:Array(years).fill(0),
+    natPA_on:Array(years).fill(0),  trtPA_on:Array(years).fill(0),
+    dN_base:Array(years), dT_base:Array(years),
+    dN_on:Array(years),   dT_on:Array(years),
+  };
+
+  // First-year per-acre baselines for elasticity
+  let baseNatOff0=0, baseTrtOff0=0, baseNatOn0=0, baseTrtOn0=0;
+
+  activeIds.forEach(id=>{
+    const spec = SPECIES[id];
+    // OFF tracks
+    let Pn_off = initialize(spec, acres, level);
+    let Pt_off = cloneP(Pn_off);
+    // ON tracks
+    let Pn_on = cloneP(Pn_off);
+    let Pt_on = cloneP(Pn_off);
+
+    for(let y=0;y<years;y++){
+      // ---- OFF ----
+      Pn_off = annualStep(spec, Pn_off, acres, false);
+      Pt_off = annualStep(spec, Pt_off, acres, false);
+      for(let a=0;a<3;a++) for(let s=0;s<2;s++) Pt_off[a][s] *= SURVIVE_ANNUAL;
+
+      const natPA_off = sumAll(Pn_off)/acres;
+      const trtPA_off = sumAll(Pt_off)/acres;
+      agg.natPA_off[y]+=natPA_off; agg.trtPA_off[y]+=trtPA_off;
+
+      if(id===activeIds[0]){ // capture once after aggregate later
+        if(y===0){ baseNatOff0=natPA_off; baseTrtOff0=trtPA_off; }
+      }
+
+      // ---- ON ----
+      Pn_on = annualStep(spec, Pn_on, acres, true);
+      Pt_on = annualStep(spec, Pt_on, acres, true);
+      for(let a=0;a<3;a++) for(let s=0;s<2;s++) Pt_on[a][s] *= SURVIVE_ANNUAL;
+
+      const natPA_on = sumAll(Pn_on)/acres;
+      const trtPA_on = sumAll(Pt_on)/acres;
+      agg.natPA_on[y]+=natPA_on; agg.trtPA_on[y]+=trtPA_on;
+
+      if(id===activeIds[0]){
+        if(y===0){ baseNatOn0=natPA_on; baseTrtOn0=trtPA_on; }
+      }
+    }
+  });
+
+  // Build damages per year with population-linked factors + owl discounts
+  for(let y=0;y<years;y++){
+    const eps=1e-9;
+
+    // Elasticity vs Year1 (OFF)
+    const idxN_off = Math.max(0, agg.natPA_off[y] / Math.max(eps, agg.natPA_off[0]));
+    const idxT_off = Math.max(0, agg.trtPA_off[y] / Math.max(eps, agg.trtPA_off[0]));
+    const popFacN_off = { yieldFactor: 1 + PHI_YIELD*(idxN_off - 1), nonYieldFactor: 1 + PHI_NON*(idxN_off - 1) };
+    const popFacT_off = { yieldFactor: 1 + PHI_YIELD*(idxT_off - 1), nonYieldFactor: 1 + PHI_NON*(idxT_off - 1) };
+
+    // Elasticity vs Year1 (ON)
+    const idxN_on  = Math.max(0, agg.natPA_on[y]  / Math.max(eps, agg.natPA_on[0]));
+    const idxT_on  = Math.max(0, agg.trtPA_on[y]  / Math.max(eps, agg.trtPA_on[0]));
+    const popFacN_on = { yieldFactor: 1 + PHI_YIELD*(idxN_on - 1),  nonYieldFactor: 1 + PHI_NON*(idxN_on - 1) };
+    const popFacT_on = { yieldFactor: 1 + PHI_YIELD*(idxT_on - 1),  nonYieldFactor: 1 + PHI_NON*(idxT_on - 1) };
+
+    // Owl discount based on drop between OFF vs ON for the same year
+    const rN = Math.max(0,(agg.natPA_off[y]-agg.natPA_on[y]) / Math.max(eps, agg.natPA_off[y]));
+    const rT = Math.max(0,(agg.trtPA_off[y]-agg.trtPA_on[y]) / Math.max(eps, agg.trtPA_off[y]));
+    const rHatN = Math.min(1, GAMMA*rN);
+    const rHatT = Math.min(1, GAMMA*rT);
+    const owlFacN = { yieldFactor: 1 - BETA_YIELD*rHatN, nonYieldFactor: 1 - BETA_NON*rHatN };
+    const owlFacT = { yieldFactor: 1 - BETA_YIELD*rHatT, nonYieldFactor: 1 - BETA_NON*rHatT };
+
+    // Combine factors by multiplication (population elasticity × owl discount)
+    const fN_off = popFacN_off, fT_off = popFacT_off;
+    const fN_on  = { yieldFactor: popFacN_on.yieldFactor * owlFacN.yieldFactor,
+                     nonYieldFactor: popFacN_on.nonYieldFactor * owlFacN.nonYieldFactor };
+    const fT_on  = { yieldFactor: popFacT_on.yieldFactor * owlFacT.yieldFactor,
+                     nonYieldFactor: popFacT_on.nonYieldFactor * owlFacT.nonYieldFactor };
+
+    // Aggregate species damages for year y
+    let dNb=null, dTb=null, dNo=null, dTo=null;
+    activeIds.forEach(id=>{
+      const spec = SPECIES[id];
+      const d1 = damages(spec, /*acres*/window._acresForSim, /*level*/window._levelForSim, false, fN_off);
+      const d2 = damages(spec, window._acresForSim, window._levelForSim, true,  fT_off);
+      const d3 = damages(spec, window._acresForSim, window._levelForSim, false, fN_on);
+      const d4 = damages(spec, window._acresForSim, window._levelForSim, true,  fT_on);
+      dNb = dNb ? addDamages(dNb,d1) : d1;
+      dTb = dTb ? addDamages(dTb,d2) : d2;
+      dNo = dNo ? addDamages(dNo,d3) : d3;
+      dTo = dTo ? addDamages(dTo,d4) : d4;
+    });
+
+    agg.dN_base[y]=dNb; agg.dT_base[y]=dTb;
+    agg.dN_on[y]=dNo;   agg.dT_on[y]=dTo;
+  }
+
+  return owlsOn
+    ? { dN: agg.dN_on, dT: agg.dT_on }
+    : { dN: agg.dN_base, dT: agg.dT_base };
 }
 
 /* ------------------------------ UI ------------------------------ */
@@ -361,29 +398,34 @@ function setAcreBubble(){
 function activeLevel(){ const btn=infButtons.find(b=>b.classList.contains("active")); return parseInt(btn.dataset.level,10); }
 function getActiveSpecies(){ const ids=speciesBtns.filter(b=>b.classList.contains("active")).map(b=>b.dataset.id); return ids.length?ids:["gopher"]; }
 
+function fillYear(i, dN, dT){
+  $("#y"+(i+1)+"_nat_total").textContent = fmtMoney(dN.total);
+  $("#y"+(i+1)+"_nat_break").innerHTML = `
+    <tr><td>Loss of crop</td><td>${fmtMoney(dN.lossOfCrop)}</td></tr>
+    <tr><td>Drip/irrigation</td><td>${fmtMoney(dN.drip)}</td></tr>
+    <tr><td>Crop damage</td><td>${fmtMoney(dN.cropD)}</td></tr>
+    <tr><td>Other O&amp;M</td><td>${fmtMoney(dN.other)}</td></tr>
+    <tr><td>Total</td><td>${fmtMoney(dN.total)}</td></tr>
+  `;
+  $("#y"+(i+1)+"_trt_total").textContent = fmtMoney(dT.total);
+  $("#y"+(i+1)+"_trt_break").innerHTML = `
+    <tr><td>Loss of crop</td><td>${fmtMoney(dT.lossOfCrop)}</td></tr>
+    <tr><td>Drip/irrigation</td><td>${fmtMoney(dT.drip)}</td></tr>
+    <tr><td>Crop damage</td><td>${fmtMoney(dT.cropD)}</td></tr>
+    <tr><td>Other O&amp;M</td><td>${fmtMoney(dT.other)}</td></tr>
+    <tr><td>Total</td><td>${fmtMoney(dT.total)}</td></tr>
+  `;
+}
+
 function render(){
   const acres=+acreRange.value, level=activeLevel(), owlsOn=owlsChk.checked, activeIds=getActiveSpecies();
+  // Expose to simulator for per-species damage aggregation
+  window._acresForSim = acres;
+  window._levelForSim = level;
+
   const { dN, dT } = simulate3Years({ acres, level, owlsOn, activeIds });
 
-  // per-year fill
-  [1,2,3].forEach((y,i)=>{
-    $("#y"+y+"_nat_total").textContent = fmtMoney(dN[i].total);
-    $("#y"+y+"_nat_break").innerHTML = `
-      <tr><td>Loss of crop</td><td>${fmtMoney(dN[i].lossOfCrop)}</td></tr>
-      <tr><td>Drip/irrigation</td><td>${fmtMoney(dN[i].drip)}</td></tr>
-      <tr><td>Crop damage</td><td>${fmtMoney(dN[i].cropD)}</td></tr>
-      <tr><td>Other O&amp;M</td><td>${fmtMoney(dN[i].other)}</td></tr>
-      <tr><td>Total</td><td>${fmtMoney(dN[i].total)}</td></tr>
-    `;
-    $("#y"+y+"_trt_total").textContent = fmtMoney(dT[i].total);
-    $("#y"+y+"_trt_break").innerHTML = `
-      <tr><td>Loss of crop</td><td>${fmtMoney(dT[i].lossOfCrop)}</td></tr>
-      <tr><td>Drip/irrigation</td><td>${fmtMoney(dT[i].drip)}</td></tr>
-      <tr><td>Crop damage</td><td>${fmtMoney(dT[i].cropD)}</td></tr>
-      <tr><td>Other O&amp;M</td><td>${fmtMoney(dT[i].other)}</td></tr>
-      <tr><td>Total</td><td>${fmtMoney(dT[i].total)}</td></tr>
-    `;
-  });
+  [0,1,2].forEach(i => fillYear(i, dN[i], dT[i]));
 }
 
 /* Events */
