@@ -5,30 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Smokin’ Burrow – Rodent Impact Estimator (3-Year)</title>
 <style>
-  :root{
-    --yellow:#f4cf2f; --ink:#0f172a; --border:#e5e7eb; --bg:#f8fafc; --card:#ffffff;
-    --radius:20px; --shadow:0 18px 40px rgba(0,0,0,.08); --page-max:1240px;
-  }
-  *{ box-sizing:border-box }
-  body{
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-  }
-
-  /* Center the whole layout with equal side padding */
-  .page{
-    max-width:var(--page-max);
-    margin:48px auto;                 /* centers the container */
-    padding:0 clamp(16px, 4vw, 36px); /* equal left/right “border” on any screen */
-  }
-
-  .wrap{
-    display:grid;
-    grid-template-columns: minmax(360px, 440px) minmax(640px, 1fr);
-    gap:28px;
-  }
-
+  :root{ --yellow:#f4cf2f; --ink:#0f172a; --border:#e5e7eb; --bg:#f8fafc; --card:#ffffff; --radius:20px; --shadow:0 18px 40px rgba(0,0,0,.08); }
+  *{box-sizing:border-box}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
+  .wrap{ max-width:1320px; margin:48px auto; padding:0 20px; display:grid; grid-template-columns:440px 1fr; gap:28px; }
   .panel{ border-radius:var(--radius); box-shadow:var(--shadow); }
   .left{ background:var(--yellow); padding:32px 26px; display:flex; flex-direction:column; gap:26px; }
   .right{ background:var(--card); padding:28px 26px; }
@@ -37,17 +17,8 @@
   .group{ display:flex; flex-direction:column; gap:12px; }
   .label{ font-weight:800; font-size:13px; letter-spacing:.04em; text-transform:uppercase; }
 
-  .segmented{
-    display:grid; grid-template-columns: repeat(3, 1fr);
-    width:100%; padding:6px; gap:0; border-radius:14px;
-    background:rgba(255,255,255,.50); border:2px solid rgba(0,0,0,.06);
-  }
-  .segmented button{
-    appearance:none; border:0; cursor:pointer; width:100%; padding:14px 0;
-    font-weight:800; font-size:15px; color:#0f172a; background:transparent;
-    border-radius:10px; border:2px solid transparent;
-    transition:background .12s, transform .06s, box-shadow .12s, opacity .12s;
-  }
+  .segmented{ display:grid; grid-template-columns: repeat(3, 1fr); width:100%; padding:6px; gap:0; border-radius:14px; background:rgba(255,255,255,.50); border:2px solid rgba(0,0,0,.06); }
+  .segmented button{ appearance:none; border:0; cursor:pointer; width:100%; padding:14px 0; font-weight:800; font-size:15px; color:#0f172a; background:transparent; border-radius:10px; border:2px solid transparent; transition:background .12s, transform .06s, box-shadow .12s, opacity .12s; }
   .segmented button:hover{ background:rgba(255,255,255,.35); }
   .segmented button:active{ transform:translateY(1px); }
   .segmented button.active{ background:#fff; border-color:rgba(0,0,0,.06); box-shadow:0 8px 20px rgba(0,0,0,.10); }
@@ -55,22 +26,10 @@
 
   .slider-wrap{ position:relative; padding-top:14px; }
   input[type="range"]{ -webkit-appearance:none; width:100%; height:8px; border-radius:999px; background:#fff; outline:none; border:2px solid rgba(0,0,0,.07); }
-  input[type="range"]::-webkit-slider-thumb{
-    -webkit-appearance:none; width:26px; height:26px; border-radius:50%;
-    background:#fff; border:2px solid rgba(0,0,0,.12); box-shadow:0 6px 18px rgba(0,0,0,.12); cursor:pointer;
-  }
-  input[type="range"]::-moz-range-thumb{
-    width:26px; height:26px; border:none; border-radius:50%; background:#fff; box-shadow:0 6px 18px rgba(0,0,0,.12); cursor:pointer;
-  }
-  .bubble{
-    position:absolute; top:-2px; transform:translate(-50%,-100%);
-    background:#111827; color:#fff; padding:6px 10px; font-size:12px; border-radius:10px;
-    box-shadow:0 10px 22px rgba(0,0,0,.14); white-space:nowrap;
-  }
-  .bubble:after{
-    content:""; position:absolute; left:50%; bottom:-6px; transform:translateX(-50%);
-    border-left:6px solid transparent; border-right:6px solid transparent; border-top:6px solid #111827;
-  }
+  input[type="range"]::-webkit-slider-thumb{ -webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:#fff; border:2px solid rgba(0,0,0,.12); box-shadow:0 6px 18px rgba(0,0,0,.12); cursor:pointer; }
+  input[type="range"]::-moz-range-thumb{ width:26px; height:26px; border:none; border-radius:50%; background:#fff; box-shadow:0 6px 18px rgba(0,0,0,.12); cursor:pointer; }
+  .bubble{ position:absolute; top:-2px; transform:translate(-50%,-100%); background:#111827; color:#fff; padding:6px 10px; font-size:12px; border-radius:10px; box-shadow:0 10px 22px rgba(0,0,0,.14); white-space:nowrap; }
+  .bubble:after{ content:""; position:absolute; left:50%; bottom:-6px; transform:translateX(-50%); border-left:6px solid transparent; border-right:6px solid transparent; border-top:6px solid #111827; }
 
   .switch{ display:flex; align-items:center; gap:12px; font-weight:700; }
   .switch input{ display:none; }
@@ -78,15 +37,6 @@
   .toggle:after{ content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 6px 18px rgba(0,0,0,.18); transition:transform .18s ease; }
   .switch input:checked + .toggle{ background:#16a34a; }
   .switch input:checked + .toggle:after{ transform:translateX(24px); }
-
-  /* Logo row under the Owl toggle */
-  .logo{
-    margin-top:6px; padding-top:12px;
-    border-top:1px dashed rgba(0,0,0,.20);
-    display:flex; align-items:center; justify-content:center; gap:10px;
-  }
-  .logo img{ height:44px; max-width:100%; display:block; }
-  .logo .fallback{ font-weight:900; letter-spacing:.06em; font-size:14px; display:none; }
 
   .headerline{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px; }
   .title{ font-size:16px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#374151; }
@@ -108,133 +58,120 @@
   .tbl td:last-child{ text-align:right; font-variant-numeric:tabular-nums; }
   .tbl tr:last-child td{ border-bottom:none; font-weight:800; }
 
-  @media (max-width:1200px){
-    .wrap{ grid-template-columns:1fr; }
-    .yeargrid{ grid-template-columns:1fr; }
-  }
+  @media (max-width:1200px){ .wrap{ grid-template-columns:1fr; } .yeargrid{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
-  <div class="page">
-    <div class="wrap">
-      <!-- LEFT / CONTROLS -->
-      <section class="panel left" aria-label="Controls">
-        <div class="lead"><h1>See how much rodents cost you</h1></div>
+  <div class="wrap">
+    <!-- LEFT / CONTROLS -->
+    <section class="panel left" aria-label="Controls">
+      <div class="lead"><h1>See how much rodents cost you</h1></div>
 
-        <!-- Rodent Types -->
-        <div class="group">
-          <div class="label">Rodent Types</div>
-          <div class="segmented species" role="group" aria-label="Rodent Types">
-            <button type="button" class="speciesbtn active" data-id="gopher" aria-pressed="true">Gophers</button>
-            <button type="button" class="speciesbtn inactive" data-id="rat" aria-pressed="false">Rats</button>
-            <button type="button" class="speciesbtn inactive" data-id="squirrel" aria-pressed="false">Squirrels</button>
-          </div>
+      <!-- Rodent Types -->
+      <div class="group">
+        <div class="label">Rodent Types</div>
+        <div class="segmented species" role="group" aria-label="Rodent Types">
+          <button type="button" class="speciesbtn active" data-id="gopher" aria-pressed="true">Gophers</button>
+          <button type="button" class="speciesbtn inactive" data-id="rat" aria-pressed="false">Rats</button>
+          <button type="button" class="speciesbtn inactive" data-id="squirrel" aria-pressed="false">Squirrels</button>
         </div>
+      </div>
 
-        <!-- Infestation -->
-        <div class="group">
-          <div class="label">Infestation Level</div>
-          <div class="segmented" role="tablist" aria-label="Infestation Level">
-            <button type="button" class="infbtn" data-level="1" role="tab" aria-selected="false">Mild</button>
-            <button type="button" class="infbtn active" data-level="2" role="tab" aria-selected="true">Medium</button>
-            <button type="button" class="infbtn" data-level="3" role="tab" aria-selected="false">Severe</button>
-          </div>
+      <!-- Infestation -->
+      <div class="group">
+        <div class="label">Infestation Level</div>
+        <div class="segmented" role="tablist" aria-label="Infestation Level">
+          <button type="button" class="infbtn" data-level="1" role="tab" aria-selected="false">Mild</button>
+          <button type="button" class="infbtn active" data-level="2" role="tab" aria-selected="true">Medium</button>
+          <button type="button" class="infbtn" data-level="3" role="tab" aria-selected="false">Severe</button>
         </div>
+      </div>
 
-        <!-- Acres -->
-        <div class="group">
-          <div class="label">Acres</div>
-          <div class="slider-wrap">
-            <div class="bubble" id="acreBubble">40 acres</div>
-            <input id="acres" type="range" min="10" max="100" step="1" value="40" aria-label="Acres" />
-          </div>
+      <!-- Acres -->
+      <div class="group">
+        <div class="label">Acres</div>
+        <div class="slider-wrap">
+          <div class="bubble" id="acreBubble">40 acres</div>
+          <input id="acres" type="range" min="10" max="100" step="1" value="40" aria-label="Acres" />
         </div>
+      </div>
 
-        <!-- Owl Boxes -->
-        <div class="group">
-          <label class="switch">
-            <input id="owls" type="checkbox" aria-label="Owl Boxes" />
-            <span class="toggle" aria-hidden="true"></span>
-            <span>Owl Boxes</span>
-          </label>
-        </div>
+      <!-- Owl Boxes -->
+      <div class="group">
+        <label class="switch">
+          <input id="owls" type="checkbox" aria-label="Owl Boxes" />
+          <span class="toggle" aria-hidden="true"></span>
+          <span>Owl Boxes</span>
+        </label>
+      </div>
+    </section>
 
-        <!-- LOGO under the Owl Boxes toggle -->
-        <div class="logo">
-          <!-- Put your logo file in the repo root named exactly below -->
-          <img src="smokin-burrow-logo.svg" alt="Smokin’ Burrow logo"
-               onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
-          <div class="fallback">Smokin’ Burrow</div>
-        </div>
-      </section>
+    <!-- RIGHT / RESULTS -->
+    <section class="panel right" aria-live="polite" aria-atomic="true">
+      <div class="headerline"><div class="title">3-Year Impact (Almonds)</div></div>
 
-      <!-- RIGHT / RESULTS -->
-      <section class="panel right" aria-live="polite" aria-atomic="true">
-        <div class="headerline"><div class="title">3-Year Impact (Almonds)</div></div>
-
-        <div class="yeargrid">
-          <!-- YEAR 1 -->
-          <div class="yearcol" id="y1">
-            <div class="yearhdr"><h2>Year 1</h2></div>
-            <div class="colgrid">
-              <div class="card">
-                <h3>Natural</h3>
-                <div class="metric"><div class="num" id="y1_nat_total">$—</div><span class="badge">Total Damage</span></div>
-                <table class="tbl"><tbody id="y1_nat_break"></tbody></table>
-              </div>
-              <div class="card">
-                <h3>Treated</h3>
-                <div class="metric"><div class="num" id="y1_trt_total">$—</div><span class="badge">Total Damage</span></div>
-                <table class="tbl"><tbody id="y1_trt_break"></tbody></table>
-              </div>
+      <div class="yeargrid">
+        <!-- YEAR 1 -->
+        <div class="yearcol" id="y1">
+          <div class="yearhdr"><h2>Year 1</h2></div>
+          <div class="colgrid">
+            <div class="card">
+              <h3>Natural</h3>
+              <div class="metric"><div class="num" id="y1_nat_total">$—</div><span class="badge">Total Damage</span></div>
+              <table class="tbl"><tbody id="y1_nat_break"></tbody></table>
             </div>
-          </div>
-
-          <!-- YEAR 2 -->
-          <div class="yearcol" id="y2">
-            <div class="yearhdr"><h2>Year 2</h2></div>
-            <div class="colgrid">
-              <div class="card">
-                <h3>Natural</h3>
-                <div class="metric"><div class="num" id="y2_nat_total">$—</div><span class="badge">Total Damage</span></div>
-                <table class="tbl"><tbody id="y2_nat_break"></tbody></table>
-              </div>
-              <div class="card">
-                <h3>Treated</h3>
-                <div class="metric"><div class="num" id="y2_trt_total">$—</div><span class="badge">Total Damage</span></div>
-                <table class="tbl"><tbody id="y2_trt_break"></tbody></table>
-              </div>
-            </div>
-          </div>
-
-          <!-- YEAR 3 -->
-          <div class="yearcol" id="y3">
-            <div class="yearhdr"><h2>Year 3</h2></div>
-            <div class="colgrid">
-              <div class="card">
-                <h3>Natural</h3>
-                <div class="metric"><div class="num" id="y3_nat_total">$—</div><span class="badge">Total Damage</span></div>
-                <table class="tbl"><tbody id="y3_nat_break"></tbody></table>
-              </div>
-              <div class="card">
-                <h3>Treated</h3>
-                <div class="metric"><div class="num" id="y3_trt_total">$—</div><span class="badge">Total Damage</span></div>
-                <table class="tbl"><tbody id="y3_trt_break"></tbody></table>
-              </div>
+            <div class="card">
+              <h3>Treated</h3>
+              <div class="metric"><div class="num" id="y1_trt_total">$—</div><span class="badge">Total Damage</span></div>
+              <table class="tbl"><tbody id="y1_trt_break"></tbody></table>
             </div>
           </div>
         </div>
-      </section>
-    </div>
+
+        <!-- YEAR 2 -->
+        <div class="yearcol" id="y2">
+          <div class="yearhdr"><h2>Year 2</h2></div>
+          <div class="colgrid">
+            <div class="card">
+              <h3>Natural</h3>
+              <div class="metric"><div class="num" id="y2_nat_total">$—</div><span class="badge">Total Damage</span></div>
+              <table class="tbl"><tbody id="y2_nat_break"></tbody></table>
+            </div>
+            <div class="card">
+              <h3>Treated</h3>
+              <div class="metric"><div class="num" id="y2_trt_total">$—</div><span class="badge">Total Damage</span></div>
+              <table class="tbl"><tbody id="y2_trt_break"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- YEAR 3 -->
+        <div class="yearcol" id="y3">
+          <div class="yearhdr"><h2>Year 3</h2></div>
+          <div class="colgrid">
+            <div class="card">
+              <h3>Natural</h3>
+              <div class="metric"><div class="num" id="y3_nat_total">$—</div><span class="badge">Total Damage</span></div>
+              <table class="tbl"><tbody id="y3_nat_break"></tbody></table>
+            </div>
+            <div class="card">
+              <h3>Treated</h3>
+              <div class="metric"><div class="num" id="y3_trt_total">$—</div><span class="badge">Total Damage</span></div>
+              <table class="tbl"><tbody id="y3_trt_break"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
 <script>
 /* ------------------------------ Helpers ------------------------------ */
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 const floorFactor=(f)=>clamp(f,0.10,5.0);          // global floor (avoid negatives / zeros)
-const capOwl=(f)=>clamp(f,0.80,1.00);              // ≤20% reduction per year from owls
+const capOwl=(f)=>clamp(f,0.80,1.00);              // <=20% reduction per year from owls
 
-/* ------------------------------ Model (gentle owls kept) ------------------------------ */
+/* ------------------------------ Model ------------------------------ */
 const SPECIES = {
   gopher: { name:"Gophers", owlEffectFactor:1.0,
     K_per_acre:200, litterMean:6, birthFracFemale:.70, breederFrac:.80,
@@ -271,7 +208,7 @@ const OWLS_PER_100_ACRES=1.9;
 const PREDATION_PER_OWL_PER_WEEK=2.0;   // ↓ was 3.5
 const OWL_STRENGTH=0.6;                  // ↓ was 1.8
 
-// Owl pop-drop → damage discount (capped later)
+// Owl pop-drop → damage discount (still computed, then capped)
 const GAMMA=4.5, BETA_YIELD=.35, BETA_NON=.70;
 
 // Population-linked elasticity (tempered)
@@ -405,11 +342,11 @@ function simulate3Years({ acres, level, owlsOn, activeIds }){
     const popFacT_on  = { yieldFactor: floorFactor(1 + PHI_YIELD*(idxT_on - 1)),
                           nonYieldFactor: floorFactor(1 + PHI_NON*(idxT_on - 1)) };
 
-    // Owl discount based on drop between OFF vs ON for the same year; cap to ≥ 0.80
+    // Owl discount based on drop between OFF vs ON for the same year (then cap to >= 0.80)
     const rN = Math.max(0,(agg.natPA_off[y]-agg.natPA_on[y]) / Math.max(eps, agg.natPA_off[y]));
     const rT = Math.max(0,(agg.trtPA_off[y]-agg.trtPA_on[y]) / Math.max(eps, agg.trtPA_off[y]));
-    const rHatN = Math.min(1, GAMMA*rN);
-    const rHatT = Math.min(1, GAMMA*rT);
+    const rHatN = Math.min(1, 4.5*rN);
+    const rHatT = Math.min(1, 4.5*rT);
     const owlFacN = { yieldFactor: capOwl(1 - BETA_YIELD*rHatN),
                       nonYieldFactor: capOwl(1 - BETA_NON*rHatN) };
     const owlFacT = { yieldFactor: capOwl(1 - BETA_YIELD*rHatT),
